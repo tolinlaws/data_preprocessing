@@ -61,12 +61,12 @@ def get_arguments():
     parser.add_argument("--gpu", type=str, default='0', help="choose gpu device.")
     parser.add_argument("--input-image-dir", type=str, default='input_image', help="path of input image folder.")
     parser.add_argument("--input-cloth-dir", type=str, default='input_cloth', help="path of input cloth folder.")
-    parser.add_argument("--input-keypoint-dir", type=str, default='input_cloth', help="path of input keypoint folder.")
-    parser.add_argument("--output-cloth-dir", type=str, default='Data_preprocessing\test_color', help="path of output cloth folder.")
-    parser.add_argument("--output-edge-dir", type=str, default='Data_preprocessing\test_edge', help="path of output edge folder.")
-    parser.add_argument("--output-image-dir", type=str, default='Data_preprocessing\test_img', help="path of output image folder.")
-    parser.add_argument("--output-label-dir", type=str, default='Data_preprocessing\test_label', help="path of output label folder.")
-    parser.add_argument("--output-keypoint-dir", type=str, default='Data_preprocessing\test_pose', help="path of output keypoint folder.")
+    parser.add_argument("--input-keypoint-dir", type=str, default='input_keypoint', help="path of input keypoint folder.")
+    parser.add_argument("--output-cloth-dir", type=str, default='Data_preprocessing/test_color', help="path of output cloth folder.")
+    parser.add_argument("--output-edge-dir", type=str, default='Data_preprocessing/test_edge', help="path of output edge folder.")
+    parser.add_argument("--output-image-dir", type=str, default='Data_preprocessing/test_img', help="path of output image folder.")
+    parser.add_argument("--output-label-dir", type=str, default='Data_preprocessing/test_label', help="path of output label folder.")
+    parser.add_argument("--output-keypoint-dir", type=str, default='Data_preprocessing/test_pose', help="path of output keypoint folder.")
     parser.add_argument("--logits", action='store_true', default=False, help="whether to save the logits.")
 
     return parser.parse_args()
@@ -125,15 +125,17 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229])
     ])
-    dataset = SimpleFolderDataset(root=args.input_image_dir, input_size=input_size, transform=transform)
-    dataloader = DataLoader(dataset)
-
+    
+    img_dataset = SimpleFolderDataset(root=args.input_image_dir, input_size=input_size, transform=transform)
+    img_dataloader = DataLoader(dataset)
+    cloth_dataset = SimpleFolderDataset(root=args.input_cloth_dir, input_size=input_size, transform=transform)
+    cloth_dataloader = DataLoader(dataset)
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
     palette = get_palette(num_classes)
     with torch.no_grad():
-        for idx, batch in enumerate(tqdm(dataloader)):
+        for idx, batch in enumerate(tqdm(img_dataloader)):
             image, meta = batch
             img_name = meta['name'][0]
             c = meta['center'].numpy()[0]
@@ -141,7 +143,7 @@ def main():
             w = meta['width'].numpy()[0]
             h = meta['height'].numpy()[0]
 
-            output = model(image.cuda())
+            output = model(image.cuda()) 
             upsample = torch.nn.Upsample(size=input_size, mode='bilinear', align_corners=True)
             upsample_output = upsample(output[0][-1][0].unsqueeze(0))
             upsample_output = upsample_output.squeeze()
@@ -176,11 +178,11 @@ def main():
             parsing_result=np.where(parsing_result==14,11,parsing_result)
             #Right_arm
             parsing_result=np.where(parsing_result==15,13,parsing_result)
-            parsing_result_path = os.path.join(args.output_dir, img_name[:-4] + '.png')
+            parsing_result_path = os.path.join(args.output_label_dir, img_name[:-4] + '.png')
             output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
             output_img.save(parsing_result_path)
             if args.logits:
-                logits_result_path = os.path.join(args.output_dir, img_name[:-4] + '.npy')
+                logits_result_path = os.path.join(args.output_label_dir, img_name[:-4] + '.npy')
                 np.save(logits_result_path, logits_result)
     return
 
