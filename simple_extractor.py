@@ -125,13 +125,12 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229])
     ])
-    
     img_dataset = SimpleFolderDataset(root=args.input_image_dir, input_size=input_size, transform=transform)
-    img_dataloader = DataLoader(dataset)
+    img_dataloader = DataLoader(img_dataset)
     cloth_dataset = SimpleFolderDataset(root=args.input_cloth_dir, input_size=input_size, transform=transform)
-    cloth_dataloader = DataLoader(dataset)
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    cloth_dataloader = DataLoader(cloth_dataset)
+    if not os.path.exists(args.output_label_dir):
+        os.makedirs(args.output_label_dir)
 
     palette = get_palette(num_classes)
     with torch.no_grad():
