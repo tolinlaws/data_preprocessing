@@ -16,7 +16,8 @@ import torch
 import argparse
 import numpy as np
 import shutil
-import os
+import glob
+import cv2
 from PIL import Image
 from tqdm import tqdm
 
@@ -118,7 +119,7 @@ def main():
         name = k[7:]  # remove `module.`
         new_state_dict[name] = v
     model.load_state_dict(new_state_dict)
-    model.cuda()
+    model.cpu()
     model.eval()
 
     transform = transforms.Compose([
@@ -131,7 +132,38 @@ def main():
     cloth_dataloader = DataLoader(cloth_dataset)
     if not os.path.exists(args.output_label_dir):
         os.makedirs(args.output_label_dir)
-
+    if not os.path.exists(args.output_cloth_dir):
+        os.makedirs(args.output_cloth_dir)
+    if not os.path.exists(args.output_edge_dir):
+        os.makedirs(args.output_edge_dir)
+    if not os.path.exists(args.output_image_dir):
+        os.makedirs(args.output_image_dir)
+    if not os.path.exists(args.output_keypoint_dir):
+        os.makedirs(args.output_keypoint_dir)
+    path_to_img_dataset='input_image'
+    filename_list = glob.glob(os.path.join(path_to_img_dataset,"*.jpg"))
+    for p in filename_list:
+        filename = p.split('/')
+        img = cv2.imread(p)
+        cv2.imwrite('Data_preprocessing/test_img/'+filename[1],img)
+    path_to_cloth_dataset='input_cloth'
+    filename_list = glob.glob(os.path.join(path_to_cloth_dataset,"*.jpg"))
+    for p in filename_list:
+        filename = p.split('/')
+        img = cv2.imread(p)
+        cv2.imwrite('Data_preprocessing/test_color/'+filename[1],img)
+        img_gray=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        ret ,img_gray = cv2.threshold(img_gray, 254, 255, cv2.THRESH_BINARY_INV)
+        img_gray = cv2.medianBlur(img_gray, 25)
+        img_gray=cv2.resize(img_gray,(192,256),interpolation=cv2.INTER_AREA)
+        cv2.imwrite('Data_preprocessing/test_edge/'+filename[1],img_gray)
+    path_to_img_dataset='input_keypoint'
+    filename_list = glob.glob(os.path.join(path_to_img_dataset,"*.json"))
+    for p in filename_list:
+        filename = p.split('/')
+        shutil.move(p,'Data_preprocessing/test_pose/'+filename[1])
+        
+    
     palette = get_palette(num_classes)
     with torch.no_grad():
         for idx, batch in enumerate(tqdm(img_dataloader)):
@@ -142,7 +174,7 @@ def main():
             w = meta['width'].numpy()[0]
             h = meta['height'].numpy()[0]
 
-            output = model(image.cuda()) 
+            output = model(image.cpu()) 
             upsample = torch.nn.Upsample(size=input_size, mode='bilinear', align_corners=True)
             upsample_output = upsample(output[0][-1][0].unsqueeze(0))
             upsample_output = upsample_output.squeeze()
